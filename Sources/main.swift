@@ -76,9 +76,16 @@ final class TTLState: ObservableObject {
 
     var isOn: Bool { ipv4 == TTL.spoofed && ipv6Off }
 
-    init() { refresh() }
+    /// Önizleme modunda sistemden okuma yapılmaz (README ekran görüntüleri için).
+    private let preview: Bool
+
+    init(preview: Bool = false) {
+        self.preview = preview
+        refresh()
+    }
 
     func refresh() {
+        guard !preview else { return }
         ipv4 = TTL.read("net.inet.ip.ttl")
         ipv6 = TTL.read("net.inet6.ip6.hlim")
         ipv6Off = TTL.ipv6Disabled()
@@ -156,10 +163,9 @@ struct PanelView: View {
                 Text(state.isOn ? "Kapat" : "Aç")
                     .font(.headline)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 6)
+                    .padding(.vertical, 8)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(state.isOn ? .red : .green)
+            .buttonStyle(FilledButtonStyle(color: state.isOn ? .red : .green))
             .disabled(state.busy)
 
             VStack(spacing: 6) {
@@ -221,6 +227,22 @@ struct PanelView: View {
     }
 }
 
+/// Pencere etkin olmasa da rengini koruyan dolu düğme
+struct FilledButtonStyle: ButtonStyle {
+    let color: Color
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(.white)
+            .background(color.opacity(configuration.isPressed ? 0.75 : 1),
+                        in: RoundedRectangle(cornerRadius: 8))
+            .opacity(isEnabled ? 1 : 0.5)
+            .contentShape(RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+#if !RENDER
 @main
 struct HotspotTTLApp: App {
     @StateObject private var state = TTLState()
@@ -234,3 +256,4 @@ struct HotspotTTLApp: App {
         .menuBarExtraStyle(.window)
     }
 }
+#endif
