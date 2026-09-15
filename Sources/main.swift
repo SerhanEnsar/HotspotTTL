@@ -25,9 +25,26 @@ enum TTL {
         return text.flatMap(Int.init)
     }
 
+    /// Wi-Fi servisinde IPv6 kapalı mı ("IPv6: Off")
+    static func ipv6Disabled() -> Bool {
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/sbin/networksetup")
+        task.arguments = ["-getinfo", "Wi-Fi"]
+        let pipe = Pipe()
+        task.standardOutput = pipe
+        task.standardError = Pipe()
+        guard (try? task.run()) != nil else { return false }
+        task.waitUntilExit()
+        let out = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        return out.contains("IPv6: Off")
+    }
+
     /// Yönetici yetkisiyle TTL ve IPv6 hop limit değerlerini yazar. Hata durumunda mesaj döner.
+    /// macOS IPv6 TCP'de arayüzün açılışta sabitlenen hop limit'ini (ndp curhlim=64) kullandığı için
+    /// sysctl hlim yetmez; mod açıkken Wi-Fi'da IPv6 kapatılır, trafik IPv4'ten gider.
     static func write(_ value: Int) -> String? {
-        let cmd = "/usr/sbin/sysctl -w net.inet.ip.ttl=\(value) net.inet6.ip6.hlim=\(value)"
+        let v6 = value == spoofed ? "-setv6off Wi-Fi" : "-setv6automatic Wi-Fi"
+        let cmd = "/usr/sbin/sysctl -w net.inet.ip.ttl=\(value) net.inet6.ip6.hlim=\(value); /usr/sbin/networksetup \(v6)"
         let source = "do shell script \"\(cmd)\" with administrator privileges"
         var error: NSDictionary?
         NSAppleScript(source: source)?.executeAndReturnError(&error)
@@ -44,17 +61,19 @@ enum TTL {
 final class TTLState: ObservableObject {
     @Published var ipv4: Int?
     @Published var ipv6: Int?
+    @Published var ipv6Off = false
     @Published var busy = false
     @Published var message: String?
     @Published var diagnosing = false
 
-    var isOn: Bool { ipv4 == TTL.spoofed && ipv6 == TTL.spoofed }
+    var isOn: Bool { ipv4 == TTL.spoofed && ipv6Off }
 
     init() { refresh() }
 
     func refresh() {
         ipv4 = TTL.read("net.inet.ip.ttl")
         ipv6 = TTL.read("net.inet6.ip6.hlim")
+        ipv6Off = TTL.ipv6Disabled()
     }
 
     func set(_ on: Bool) {
@@ -115,7 +134,7 @@ struct PanelView: View {
                     .foregroundStyle(state.isOn ? .green : .secondary)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Hotspot TTL").font(.headline)
-                    Text(state.isOn ? "Aktif: TTL 65" : "Kapalı: varsayılan 64")
+                    Text(state.isOn ? "Aktif: TTL 65, IPv6 kapalı" : "Kapalı: varsayılan")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -138,6 +157,14 @@ struct PanelView: View {
             VStack(spacing: 6) {
                 row("IPv4 TTL", state.ipv4)
                 row("IPv6 hop limit", state.ipv6)
+                HStack {
+                    Text("Wi-Fi IPv6").foregroundStyle(.secondary)
+                    Spacer()
+                    Text(state.ipv6Off ? "Kapalı" : "Açık")
+                        .fontWeight(.semibold)
+                        .foregroundStyle(state.ipv6Off ? .green : .primary)
+                }
+                .font(.callout)
             }
             .padding(10)
             .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))

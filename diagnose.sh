@@ -21,6 +21,9 @@ tmo() {
 
   section "TTL"
   run sysctl net.inet.ip.ttl net.inet6.ip6.hlim
+  echo "--- IPv6 TCP'nin fiilen kullandığı arayüz hop limit'i"
+  ndp -i en0 2>&1 | head -1
+  networksetup -getinfo Wi-Fi 2>&1 | grep -E "^IPv6:"
 
   section "Ağ arayüzü / rota"
   run route -n get default
