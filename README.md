@@ -146,6 +146,37 @@ Hotspot'ta internet yokken yardım istemek zordur. **Tanı Çalıştır** düğm
 
 **İpucu:** Biri mod **kapalıyken**, biri **açıkken** olmak üzere iki rapor al ve karşılaştır.
 
+## Android sürümü
+
+Başka bir telefonun hotspot'una bağlanan Android cihaz için. **Root gerekmez.**
+
+Android'de uygulamalar sistemin TTL ayarına dokunamıyor, ama kendi açtıkları soketlerin TTL'ini değiştirebiliyor. Uygulama bu yüzden cihazın içinde yerel bir VPN kuruyor. Trafik hiçbir sunucuya gitmiyor:
+
+```mermaid
+flowchart LR
+    A["📱 Uygulamalar<br/>TTL 64"] --> T["tun0<br/><sub>yerel VPN</sub>"]
+    T --> S["HotspotTTL<br/><sub>TCP/UDP'yi sonlandırır</sub>"]
+    S -->|"yeni soket<br/>IP_TTL=65"| W["📶 Wi-Fi → 📱 Hotspot<br/>−1"] --> O["🏢 Operatör<br/>görür: 64 ✅"]
+```
+
+- **TCP:** Uygulamanın bağlantısı kullanıcı alanında karşılanır, hedefe `IP_TTL` / `IPV6_UNICAST_HOPS` = 65 ayarlı yeni bir soketle bağlanılır ve veri iki yöne aktarılır.
+- **UDP** (DNS, QUIC): her akış için TTL 65'li bağlı bir soket açılır. VPN'in sanal DNS adresine (`10.215.173.2`) giden sorgular Wi-Fi'ın DNS sunucusuna yönlendirilir.
+- **IPv6** kapatılmıyor, hop limit 65 ile çalışıyor.
+- Uygulamanın kendi soketleri VPN'in dışında tutuluyor (`addDisallowedApplication`), böylece döngü oluşmuyor.
+- Ekranda bağlantı ve bayt sayaçları ile **Test Et** düğmesi var. Hızlı ayarlara **Hotspot TTL** kutucuğu eklenebiliyor. Android ayarlarından "Her zaman açık VPN" olarak da seçilebiliyor.
+
+**Derleme ve kurulum** (Android Studio ya da Android SDK + JDK 17+):
+
+```bash
+cd android
+./gradlew assembleDebug
+adb install app/build/outputs/apk/debug/app-debug.apk
+```
+
+APK'yı telefona başka bir yoldan da atıp kurabilirsin (bilinmeyen kaynaklara izin vermek gerekir).
+
+**Sınırlar:** Ping (ICMP) VPN'den geçmez. Her bağlantı telefonun içinde yeniden kurulduğu için biraz ek işlemci yükü var.
+
 ## Nasıl bulundu?
 
 Uygulama, gerçek bir Vodafone hattında ve Samsung Android hotspot'unda tanı raporlarıyla adım adım geliştirildi:
@@ -175,7 +206,17 @@ HotspotTTL/
 ├── Tools/
 │   ├── render.swift     # README ekran görüntülerini üretir
 │   └── render.sh
-└── docs/                # panel görselleri (açık/koyu tema)
+├── docs/                # panel görselleri (açık/koyu tema)
+└── android/             # Android uygulaması (Kotlin, bağımlılık yok)
+    └── app/src/main/java/com/serhanensar/hotspotttl/
+        ├── TtlVpnService.kt      # VPN kurulumu, TUN okuma, akış tablosu
+        ├── TcpSession.kt         # kullanıcı alanı TCP ⇄ TTL 65 soket
+        ├── UdpSession.kt         # UDP/DNS aktarımı
+        ├── Packet.kt             # IPv4/IPv6 + TCP/UDP ayrıştırma, checksum
+        ├── TtlSocket.kt          # TTL 65 soket açma
+        ├── SelfTest.kt           # Test Et düğmesi
+        ├── MainActivity.kt       # ekran
+        └── ToggleTileService.kt  # hızlı ayar kutucuğu
 ```
 
 - **Tek dosya, bağımlılık yok.** `swiftc` ile doğrudan derleniyor.
