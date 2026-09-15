@@ -46,6 +46,7 @@ final class TTLState: ObservableObject {
     @Published var ipv6: Int?
     @Published var busy = false
     @Published var message: String?
+    @Published var diagnosing = false
 
     var isOn: Bool { ipv4 == TTL.spoofed && ipv6 == TTL.spoofed }
 
@@ -66,6 +67,36 @@ final class TTLState: ObservableObject {
                 self.message = err
                 self.busy = false
                 self.refresh()
+            }
+        }
+    }
+
+    /// Paketlenmiş diagnose.sh'i çalıştırır, oluşan raporu Finder'da gösterir.
+    func diagnose() {
+        guard let script = Bundle.main.path(forResource: "diagnose", ofType: "sh") else {
+            message = "diagnose.sh bulunamadı"
+            return
+        }
+        diagnosing = true
+        message = nil
+        Task.detached {
+            let task = Process()
+            task.executableURL = URL(fileURLWithPath: "/bin/bash")
+            task.arguments = [script]
+            let pipe = Pipe()
+            task.standardOutput = pipe
+            try? task.run()
+            task.waitUntilExit()
+            let path = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            await MainActor.run {
+                self.diagnosing = false
+                if FileManager.default.fileExists(atPath: path) {
+                    self.message = "Rapor Masaüstü'ne kaydedildi"
+                    NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
+                } else {
+                    self.message = "Tanı başarısız"
+                }
             }
         }
     }
@@ -111,8 +142,21 @@ struct PanelView: View {
             .padding(10)
             .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
 
+            Button {
+                state.diagnose()
+            } label: {
+                HStack {
+                    if state.diagnosing { ProgressView().controlSize(.mini) }
+                    Text(state.diagnosing ? "Tanı sürüyor (~1 dk)…" : "Tanı Çalıştır")
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .disabled(state.diagnosing)
+
             if let msg = state.message {
-                Text(msg).font(.caption).foregroundStyle(.red)
+                Text(msg).font(.caption)
+                    .foregroundStyle(msg.hasPrefix("Rapor") ? Color.secondary : Color.red)
             }
 
             Divider()

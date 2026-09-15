@@ -13,6 +13,8 @@ swiftc -parse-as-library -O \
   -o "$APP/Contents/MacOS/HotspotTTL"
 
 cp Info.plist "$APP/Contents/Info.plist"
+mkdir -p "$APP/Contents/Resources"
+cp diagnose.sh "$APP/Contents/Resources/diagnose.sh"
 codesign --force -s - "$APP"
 
 echo "Derlendi: $APP"

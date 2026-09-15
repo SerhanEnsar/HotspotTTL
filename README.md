@@ -37,6 +37,14 @@ Gereksinim: macOS 13+ ve Xcode Command Line Tools (`xcode-select --install`).
 - Değer değişirken macOS yönetici şifresini (veya Touch ID) ister.
 - Ayar kalıcı değildir. Mac yeniden başlatılınca 64'e döner, ihtiyaç olduğunda tekrar açılır.
 
+## Tanı (internet yokken)
+
+Hotspot'ta sayfalar açılmıyorsa panelde **Tanı Çalıştır**'a bas (veya `./diagnose.sh`).
+Yaklaşık 30–60 sn sürer; TTL, rota, DNS, ping, traceroute, HTTP/HTTPS ve hız testlerini
+`~/Desktop/HotspotTTL-rapor-<tarih>.txt` dosyasına yazar. İnternet gerektirmez.
+
+En faydalısı iki rapor almaktır: biri TTL **kapalıyken**, biri **açıkken**.
+
 ## Sınırlar
 
 - TTL tek tespit yöntemi değildir. Operatör DPI ile de tespit yapabilir (işletim sistemi güncelleme trafiği, User-Agent vb.).
