@@ -70,9 +70,30 @@ tmo() {
   echo "--- Operatör yönlendirme sayfası var mı? (HTTP başlıkları + gövde başı)"
   curl -sS -m "$T" -i http://neverssl.com 2>&1 | head -25
 
+  section "Claude / Anthropic"
+  for u in https://claude.ai https://api.anthropic.com https://statsig.anthropic.com; do
+    curl -sS -m "$T" -o /dev/null -w "$u -> kod=%{http_code} ip=%{remote_ip} süre=%{time_total}s\n" "$u" 2>&1
+  done
+
+  section "UDP (QUIC/DNS yolu)"
+  echo "--- UDP 53 üzerinden harici DNS"
+  tmo dig +short +time=2 +tries=1 @8.8.8.8 youtube.com
+  echo "--- UDP 443 (QUIC) - nc ile paket gönderimi"
+  tmo nc -u -z -w 2 142.250.187.110 443 && echo "gönderildi"
+
   section "Hız (2 MB)"
   curl -sS -m 15 -o /dev/null -w "indirme=%{speed_download} B/s süre=%{time_total}s\n" \
     'https://speed.cloudflare.com/__down?bytes=2000000' 2>&1
+
+  section "Uzun indirme (20 sn) - geç devreye giren engel var mı?"
+  curl -sS -m 20 -o /dev/null -w "toplam=%{size_download} B ort=%{speed_download} B/s süre=%{time_total}s\n" \
+    'https://speed.cloudflare.com/__down?bytes=200000000' 2>&1
+  echo "--- 20 sn sonra tekrar kısa test"
+  curl -sS -m "$T" -o /dev/null -w "google kod=%{http_code} süre=%{time_total}s\n" https://www.google.com 2>&1
+
+  section "Proxy / tarayıcı"
+  scutil --proxy 2>&1 | grep -E "Enable|Proxy :"
+  pgrep -lf "Google Chrome.app/Contents/MacOS" | head -1
 
   echo; echo "Bitti."
 } > "$OUT" 2>&1
