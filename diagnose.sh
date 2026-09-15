@@ -24,6 +24,16 @@ tmo() {
   echo "--- IPv6 TCP'nin fiilen kullandığı arayüz hop limit'i"
   ndp -i en0 2>&1 | head -1
   networksetup -getinfo Wi-Fi 2>&1 | grep -E "^IPv6:"
+  echo "--- Network.framework (Safari yolu) testi"
+  cat > /tmp/hotspotttl-ns.swift <<'EOF'
+import Foundation
+var req = URLRequest(url: URL(string: "https://www.google.com")!); req.timeoutInterval = 6
+let s = DispatchSemaphore(value: 0)
+URLSession.shared.dataTask(with: req) { _, r, e in
+  print("URLSession google kod=\((r as? HTTPURLResponse)?.statusCode ?? 0) hata=\(e?.localizedDescription ?? "-")"); s.signal()
+}.resume(); _ = s.wait(timeout: .now() + 8)
+EOF
+  swiftc -O /tmp/hotspotttl-ns.swift -o /tmp/hotspotttl-ns 2>/dev/null && /tmp/hotspotttl-ns
 
   section "Ağ arayüzü / rota"
   run route -n get default

@@ -42,9 +42,17 @@ enum TTL {
     /// Yönetici yetkisiyle TTL ve IPv6 hop limit değerlerini yazar. Hata durumunda mesaj döner.
     /// macOS IPv6 TCP'de arayüzün açılışta sabitlenen hop limit'ini (ndp curhlim=64) kullandığı için
     /// sysctl hlim yetmez; mod açıkken Wi-Fi'da IPv6 kapatılır, trafik IPv4'ten gider.
+    /// Safari/URLSession gibi Network.framework kullanan uygulamalar paketlerini kullanıcı alanında
+    /// oluşturup sysctl TTL'ini yok saydığı için ayrıca pf ile Wi-Fi'dan çıkan her pakete min-ttl 65 zorlanır.
+    static let pfAnchor = "com.apple/250.HotspotTTL"
+
     static func write(_ value: Int) -> String? {
-        let v6 = value == spoofed ? "-setv6off Wi-Fi" : "-setv6automatic Wi-Fi"
-        let cmd = "/usr/sbin/sysctl -w net.inet.ip.ttl=\(value) net.inet6.ip6.hlim=\(value); /usr/sbin/networksetup \(v6)"
+        let on = value == spoofed
+        let v6 = on ? "-setv6off Wi-Fi" : "-setv6automatic Wi-Fi"
+        let pf = on
+            ? "echo 'scrub out on en0 all min-ttl \(spoofed)' | /sbin/pfctl -a \(pfAnchor) -f - 2>/dev/null; /sbin/pfctl -e 2>/dev/null"
+            : "/sbin/pfctl -a \(pfAnchor) -F all 2>/dev/null"
+        let cmd = "/usr/sbin/sysctl -w net.inet.ip.ttl=\(value) net.inet6.ip6.hlim=\(value); /usr/sbin/networksetup \(v6); \(pf); true"
         let source = "do shell script \"\(cmd)\" with administrator privileges"
         var error: NSDictionary?
         NSAppleScript(source: source)?.executeAndReturnError(&error)

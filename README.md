@@ -21,6 +21,14 @@ net.inet.ip.ttl=65
 net.inet6.ip6.hlim=65
 ```
 
+Sadece `sysctl` yetmiyor, **Aç** düğmesi üç şey birden yapar:
+
+1. `sysctl` ile TTL 65 yapılır. curl, Chrome, Brave gibi klasik soket kullanan uygulamalar için yeterli.
+2. **pf** ile `scrub out on en0 all min-ttl 65` kuralı yüklenir. Safari, App Store gibi Network.framework kullanan uygulamalar paketlerini kendileri oluşturduğu için `sysctl` TTL'ini kullanmaz, bu kural onları da kapsar.
+3. Wi-Fi'da **IPv6 kapatılır**. macOS, IPv6 TCP bağlantılarında arayüzün açılışta 64'e sabitlenen hop limit değerini (`ndp -i en0` → `curhlim`) kullanır.
+
+**Kapat** bu üç ayarı da geri alır.
+
 ## Kurulum
 
 ```bash
