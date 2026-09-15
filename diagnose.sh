@@ -71,7 +71,7 @@ tmo() {
   curl -sS -m "$T" -i http://neverssl.com 2>&1 | head -25
 
   section "Claude / Anthropic"
-  for u in https://claude.ai https://api.anthropic.com https://statsig.anthropic.com; do
+  for u in https://claude.ai https://api.anthropic.com; do
     curl -sS -m "$T" -o /dev/null -w "$u -> kod=%{http_code} ip=%{remote_ip} süre=%{time_total}s\n" "$u" 2>&1
   done
 
@@ -87,7 +87,7 @@ tmo() {
 
   section "Uzun indirme (20 sn) - geç devreye giren engel var mı?"
   curl -sS -m 20 -o /dev/null -w "toplam=%{size_download} B ort=%{speed_download} B/s süre=%{time_total}s\n" \
-    'https://speed.cloudflare.com/__down?bytes=200000000' 2>&1
+    'https://speed.cloudflare.com/__down?bytes=50000000' 2>&1
   echo "--- 20 sn sonra tekrar kısa test"
   curl -sS -m "$T" -o /dev/null -w "google kod=%{http_code} süre=%{time_total}s\n" https://www.google.com 2>&1
 
