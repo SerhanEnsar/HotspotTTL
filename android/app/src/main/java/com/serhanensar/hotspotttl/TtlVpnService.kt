@@ -2,6 +2,7 @@ package com.serhanensar.hotspotttl
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.VpnService
@@ -64,7 +65,7 @@ class TtlVpnService : VpnService() {
     private fun startVpn() {
         if (running) return
         val pfd = try {
-            Builder()
+            val builder = Builder()
                 .setSession("Hotspot TTL")
                 .setMtu(MTU)
                 .addAddress(VPN_ADDR4, 24)
@@ -73,7 +74,9 @@ class TtlVpnService : VpnService() {
                 .addRoute("::", 0)
                 .addDnsServer(VIRTUAL_DNS)
                 .addDisallowedApplication(packageName) // kendi soketlerimiz VPN'e geri dönmesin
-                .establish()
+            // CallBridge hotspot ağındaki tablete bağlanır; o trafik VPN'e girmesin
+            try { builder.addDisallowedApplication(CALLBRIDGE_PACKAGE) } catch (_: PackageManager.NameNotFoundException) {}
+            builder.establish()
         } catch (e: Exception) {
             Log.e(TAG, "VPN kurulamadı", e)
             null
@@ -239,6 +242,7 @@ class TtlVpnService : VpnService() {
         const val VPN_ADDR4 = "10.215.173.1"
         const val VPN_ADDR6 = "fd7a:7474:6c00::1"
         const val VIRTUAL_DNS = "10.215.173.2"
+        const val CALLBRIDGE_PACKAGE = "com.serhanensar.callbridge"
         private val vpnAddr4 = InetAddress.getByName(VPN_ADDR4)
         private val vpnAddr6 = InetAddress.getByName(VPN_ADDR6)
         private val virtualDns = InetAddress.getByName(VIRTUAL_DNS)
