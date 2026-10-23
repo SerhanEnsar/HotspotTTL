@@ -34,6 +34,7 @@
 - [Nasıl bulundu?](#nasıl-bulundu)
 - [Proje yapısı](#proje-yapısı)
 - [Sınırlar](#sınırlar)
+- [Lisans](#lisans)
 
 ## Sorun
 
@@ -236,3 +237,7 @@ README görsellerini yeniden üretmek için:
 - **Sadece Wi-Fi (`en0`):** USB ya da Bluetooth ile paylaşım için pf kuralında arayüz adı değiştirilmeli.
 - **IPv6** mod açıkken tamamen kapalıdır, bütün trafik IPv4'ten gider.
 - Hat tarifenizin hotspot koşullarını kontrol edin. Kullanım sorumluluğu size aittir.
+
+## Lisans
+
+[Apache Lisansı 2.0](LICENSE). Telif: 2026 SerhanEnsar (bkz. [NOTICE](NOTICE)).
