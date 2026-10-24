@@ -138,9 +138,10 @@ Get-NetIPInterface -ConnectionState Connected |
             };
             foreach (var i in cur.Ifaces)
             {
-                // Açıkken bağlanılan arayüzlerin eski değeri bilinmiyor: global varsayılana dön
+                // Açıkken bağlanılan arayüzlerin eski değeri bilinmiyor: global değeri kullanmaya dön
                 var old = backup.Ifaces.FirstOrDefault(b => b.Index == i.Index && b.Family == i.Family);
-                cmds.Add(SetIface(i, old != null ? Sane(old.HopLimit) : (i.Family == "IPv6" ? v6 : v4)));
+                // 0 = arayüz global değeri kullanıyor (Windows varsayılanı)
+                cmds.Add(SetIface(i, old != null && old.HopLimit != Spoofed ? old.HopLimit : 0));
             }
             var err = Netsh(cmds);
             if (err == null && File.Exists(BackupPath)) File.Delete(BackupPath);
