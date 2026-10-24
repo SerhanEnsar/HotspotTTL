@@ -1,0 +1,54 @@
+name: Windows
+
+on:
+  push:
+    paths: ['windows/**', '.github/workflows/windows.yml']
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Derle
+        run: dotnet build windows/HotspotTTL.csproj -c Release
+
+      - name: Uçtan uca test (netsh + paket yakalama)
+        shell: pwsh
+        run: |
+          $exe = "windows/bin/Release/net48/HotspotTTL.exe"
+          pip install --quiet scapy
+
+          function Capture($name) {
+            pktmon filter remove | Out-Null
+            pktmon filter add -t TCP -p 443 | Out-Null
+            pktmon start --capture --pkt-size 128 --file-name "$name.etl" | Out-Null
+            curl.exe -4 -sS -o NUL -m 10 https://www.google.com/
+            curl.exe -4 -sS -o NUL -m 10 https://github.com/
+            pktmon stop | Out-Null
+            pktmon etl2pcap "$name.etl" --out "$name.pcapng" | Out-Null
+            python -c "from scapy.all import *; import collections; p=rdpcap('$name.pcapng'); c=collections.Counter(x[IP].ttl for x in p if IP in x and TCP in x and x[TCP].flags=='S'); print('$name SYN TTL:', dict(c))" | Tee-Object -Variable res
+            return "$res"
+          }
+
+          Write-Host "--- durum (önce)"; & $exe --status | Out-String | Write-Host
+          $before = Capture "before"
+
+          Write-Host "--- aç"; & $exe --on | Out-String | Write-Host
+          if ($LASTEXITCODE -ne 0) { throw "--on başarısız" }
+          $s = New-Object Net.Sockets.Socket InterNetwork, Stream, Tcp; Write-Host "Yeni soket TTL: $($s.Ttl)"
+          $on = Capture "on"
+
+          Write-Host "--- kapat"; & $exe --off | Out-String | Write-Host
+          if ($LASTEXITCODE -ne 0) { throw "--off başarısız" }
+          $after = Capture "after"
+
+          if ($on -notmatch '\{65: \d+\}') { throw "Açıkken SYN TTL 65 değil: $on" }
+          if ($after -match '65') { throw "Kapattıktan sonra TTL geri dönmedi: $after" }
+          Write-Host "OK"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HotspotTTL-Windows
+          path: windows/bin/Release/net48/HotspotTTL.exe

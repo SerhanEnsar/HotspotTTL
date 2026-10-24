@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- .NET Framework 4.8: Windows 10/11'de hazır geliyor, ayrıca runtime kurmak gerekmiyor -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>HotspotTTL</AssemblyName>
+    <RootNamespace>HotspotTTL</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>icon.ico</ApplicationIcon>
+    <Version>1.1.0</Version>
+    <Product>Hotspot TTL</Product>
+    <Company>SerhanEnsar</Company>
+    <Copyright>Copyright 2026 SerhanEnsar</Copyright>
+    <DebugType>none</DebugType>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Drawing" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+    <EmbeddedResource Include="icon.ico" LogicalName="icon.ico" />
+    <EmbeddedResource Include="icon-off.ico" LogicalName="icon-off.ico" />
+    <EmbeddedResource Include="diagnose.ps1" LogicalName="diagnose.ps1" />
+  </ItemGroup>
+</Project>
