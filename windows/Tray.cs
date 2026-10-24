@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Reflection;
@@ -344,8 +345,11 @@ namespace HotspotTTL
             Value(v4, s.V4);
             Value(v6, s.V6);
             var list = new System.Text.StringBuilder();
-            foreach (var i in s.Ifaces)
-                list.Append($"{i.Alias} ({i.Family}): {i.HopLimit}\n");
+            // 0: arayüz global değeri kullanıyor
+            foreach (var g in s.Ifaces.GroupBy(i => i.Alias))
+                list.Append(g.Key).Append(": ")
+                    .Append(string.Join(" · ", g.OrderBy(i => i.Family).Select(i => $"{i.Family} {(i.HopLimit == 0 ? "varsayılan" : i.HopLimit.ToString())}")))
+                    .Append('\n');
             ifaces.Text = list.Length > 0 ? list.ToString().TrimEnd() : "Bağlı arayüz yok";
 
             test.Enabled = !app.Busy;
