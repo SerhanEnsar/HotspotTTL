@@ -28,7 +28,7 @@ jobs:
             curl.exe -4 -sS -o NUL -m 10 https://github.com/
             pktmon stop | Out-Null
             pktmon etl2pcap "$name.etl" --out "$name.pcapng" | Out-Null
-            python -c "from scapy.all import *; import collections; p=rdpcap('$name.pcapng'); print(len(p), p[0].summary() if p else ''); c=collections.Counter(x[IP].ttl for x in p if IP in x and TCP in x and x[TCP].flags=='S' and x[TCP].dport==443); print('$name SYN TTL:', dict(c))" | Tee-Object -Variable res
+            python -c "from scapy.all import *; import collections; p=rdpcap('$name.pcapng'); print(len(p), p[0].summary() if p else ''); c=collections.Counter(x[IP].ttl for x in p if IP in x and TCP in x and x[TCP].dport==443); print('$name giden TTL:', dict(c))" | Tee-Object -Variable res
             return "$res"
           }
 
@@ -44,7 +44,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "--off başarısız" }
           $after = Capture "after"
 
-          if ($on -notmatch '\{65: \d+\}') { throw "Açıkken SYN TTL 65 değil: $on" }
+          if ($on -notmatch '^[^{]*\{65: \d+\}') { throw "Açıkken giden TTL 65 değil: $on" }
           $st = & $exe --status | Out-String
           if ($st -notmatch 'I \d+ IPv4 0 ') { throw "Arayüz hop limit'i 0'a (global) dönmedi" }
           if ($after -match '\b65:') { throw "Kapattıktan sonra TTL geri dönmedi: $after" }
