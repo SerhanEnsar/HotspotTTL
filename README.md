@@ -1,11 +1,13 @@
 <h1 align="center">📡 Hotspot TTL</h1>
 
 <p align="center">
-  Telefon hotspot'una bağlıyken Mac trafiğini telefonun kendi trafiği gibi gösteren, menü çubuğunda duran tek tıklık bir macOS uygulaması.
+  Telefon hotspot'una bağlıyken bilgisayar trafiğini telefonun kendi trafiği gibi gösteren tek tıklık uygulama. macOS, Windows ve Android sürümleri var.
 </p>
 
 <p align="center">
   <img alt="macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-black?logo=apple">
+  <img alt="Windows 10+" src="https://img.shields.io/badge/Windows-10%2B-0078D4?logo=windows">
+  <img alt="Android 8+" src="https://img.shields.io/badge/Android-8%2B-3DDC84?logo=android&logoColor=white">
   <img alt="Swift" src="https://img.shields.io/badge/Swift-SwiftUI-F05138?logo=swift&logoColor=white">
   <img alt="Bağımlılık yok" src="https://img.shields.io/badge/ba%C4%9F%C4%B1ml%C4%B1l%C4%B1k-yok-brightgreen">
 </p>
@@ -31,6 +33,8 @@
 - [Kurulum](#kurulum)
 - [Kullanım](#kullanım)
 - [Tanı aracı](#tanı-aracı)
+- [Windows sürümü](#windows-sürümü)
+- [Android sürümü](#android-sürümü)
 - [Nasıl bulundu?](#nasıl-bulundu)
 - [Proje yapısı](#proje-yapısı)
 - [Sınırlar](#sınırlar)
@@ -147,6 +151,41 @@ Hotspot'ta internet yokken yardım istemek zordur. **Tanı Çalıştır** düğm
 
 **İpucu:** Biri mod **kapalıyken**, biri **açıkken** olmak üzere iki rapor al ve karşılaştır.
 
+## Windows sürümü
+
+<p align="center">
+  <img alt="Windows: kapalı" src="docs/windows-off.png" width="300">
+  &nbsp;&nbsp;
+  <img alt="Windows: açık" src="docs/windows-on.png" width="300">
+</p>
+
+Bildirim alanında (saatin yanında) duran bir uygulama. **Windows 10 / 11**, ek kurulum gerekmez (.NET Framework 4.8 sistemde hazır).
+
+Windows'ta iş macOS'tan kolay: Edge, Chrome, Store dahil bütün uygulamalar çekirdeğin TCP/IP yığınını kullanıyor, kullanıcı alanında paket üreten ayrı bir yığın yok. **Aç** düğmesi şunları yapar:
+
+| # | Komut | Neden |
+|:-:|-------|-------|
+| ① | `netsh interface ipv4/ipv6 set global defaultcurhoplimit=65 store=active` | Global varsayılan TTL / hop limit (Windows'ta normalde 128) |
+| ② | `netsh interface ipv4/ipv6 set interface <n> currenthoplimit=65 store=active` | Arayüz başına değer. IPv6'da telefonun Router Advertisement'ı bunu 64'e çekip global ayarı ezebiliyor |
+
+- **IPv6 kapatılmıyor**, hop limit 65 ile çalışıyor.
+- Mod açıkken ağ değişince (yeni Wi-Fi, IPv6 RA) ve 30 saniyede bir arayüz değerleri kontrol edilip yeniden 65 yazılıyor.
+- `store=active` sayesinde ayarlar **kalıcı değil**, yeniden başlatınca sıfırlanıyor. **Kapat** ve **Çıkış** eski değerleri geri yükler (açmadan önceki değerler `%ProgramData%\HotspotTTL\backup.txt` dosyasında tutulur).
+- Değerler PowerShell `Get-NetIPv4Protocol` / `Get-NetIPInterface` ile okunuyor; netsh çıktısı Windows diline göre değiştiği için ayrıştırılmıyor.
+- **Tanı Çalıştır** macOS'takiyle aynı bölümleri içeren raporu `Masaüstü\HotspotTTL-rapor-<tarih>.txt` dosyasına yazar.
+- Yönetici yetkisi gerekiyor: uygulama açılırken bir kez UAC penceresi çıkar.
+
+Komut satırından da kullanılabilir: `HotspotTTL.exe --status | --on | --off`.
+
+GitHub Actions her değişiklikte uygulamayı Windows'ta derleyip uçtan uca test ediyor: `pktmon` ile paket yakalayıp mod açıkken giden bütün paketlerin TTL'inin 65, kapattıktan sonra eski değerinde olduğunu doğruluyor ([`.github/workflows/windows.yml`](.github/workflows/windows.yml)).
+
+**Derleme** (Windows, macOS ya da Linux'ta .NET SDK 8+ ile):
+
+```bash
+dotnet build windows/HotspotTTL.csproj -c Release
+# çıktı: windows/bin/Release/net48/HotspotTTL.exe
+```
+
 ## Android sürümü
 
 Başka bir telefonun hotspot'una bağlanan Android cihaz için. **Root gerekmez.**
@@ -208,6 +247,12 @@ HotspotTTL/
 │   ├── render.swift     # README ekran görüntülerini üretir
 │   └── render.sh
 ├── docs/                # panel görselleri (açık/koyu tema)
+├── windows/             # Windows uygulaması (C# WinForms, .NET Framework 4.8)
+│   ├── Ttl.cs           # netsh / PowerShell ile TTL okuma-yazma, yedekleme
+│   ├── Tray.cs          # bildirim alanı ikonu ve panel
+│   ├── Program.cs       # giriş noktası, komut satırı (--status/--on/--off)
+│   ├── diagnose.ps1     # tanı raporu
+│   └── icon.py          # ikonları üretir
 └── android/             # Android uygulaması (Kotlin, bağımlılık yok)
     └── app/src/main/java/com/serhanensar/hotspotttl/
         ├── TtlVpnService.kt      # VPN kurulumu, TUN okuma, akış tablosu
@@ -234,7 +279,8 @@ README görsellerini yeniden üretmek için:
 
 - **TTL tek tespit yöntemi değildir.** Operatör trafiğin içeriğine de bakabilir (DPI): işletim sistemi güncelleme sunucuları, User-Agent vb.
 - **Ayrı hotspot APN'i:** operatör hotspot trafiğini farklı bir APN'den geçiriyorsa bu ayarlar işe yaramaz.
-- **Sadece Wi-Fi (`en0`):** USB ya da Bluetooth ile paylaşım için pf kuralında arayüz adı değiştirilmeli.
+- **Sadece Wi-Fi (`en0`, macOS):** USB ya da Bluetooth ile paylaşım için pf kuralında arayüz adı değiştirilmeli. Windows'ta bütün arayüzlere uygulanır.
+- **Windows'ta sanal makineler** (Hyper-V, WSL): NAT ile yönlendirilen paketlerin TTL'i ayrıca 1 azalır; bu trafik için ayar işe yaramayabilir.
 - **IPv6** mod açıkken tamamen kapalıdır, bütün trafik IPv4'ten gider.
 - Hat tarifenizin hotspot koşullarını kontrol edin. Kullanım sorumluluğu size aittir.
 
