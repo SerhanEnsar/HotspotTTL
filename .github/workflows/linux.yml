@@ -1,0 +1,81 @@
+name: Linux
+
+on:
+  push:
+    paths: ['linux/**', '.github/workflows/linux.yml']
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Birim testler
+        run: python3 -m unittest discover -s linux -p 'test_*.py' -v
+
+      - name: Paket derle
+        run: |
+          chmod +x linux/hotspot_ttl.py
+          linux/build-deb.sh 1.2
+          dpkg-deb -I linux/dist/hotspot-ttl_1.2_all.deb
+
+      - name: Paketi kur (ilk kurulumda bağımlılıklar)
+        run: |
+          sudo apt-get install -q -y ./linux/dist/hotspot-ttl_1.2_all.deb
+          test -x /usr/bin/hotspot-ttl
+          test -f /usr/share/polkit-1/actions/com.serhanensar.hotspotttl.policy
+
+      - name: Uçtan uca test (sysctl + iptables + paket yakalama)
+        run: |
+          sudo apt-get install -q -y tcpdump
+          H="sudo /usr/bin/hotspot-ttl"
+
+          # Yakalama: 443 portuna giden SYN paketlerinin TTL değerlerini say
+          capture() {
+            name="$1"
+            sudo timeout -s INT 25 tcpdump -l -n -v -i any \
+              'tcp dst port 443 and tcp[tcpflags] & tcp-syn != 0' > "$name.txt" 2>&1 &
+            td=$!
+            sleep 3
+            curl -4 -sS -o /dev/null -m 10 https://www.google.com/ || true
+            curl -4 -sS -o /dev/null -m 10 https://github.com/ || true
+            sleep 1
+            wait "$td" || true
+            echo "--- $name giden TTL:"
+            grep -o 'ttl [0-9]*' "$name.txt" | sort | uniq -c || true
+          }
+
+          echo "--- durum (önce)"; $H --status
+          BEFORE=$(sysctl -n net.ipv4.ip_default_ttl)
+          capture before
+          grep -q 'ttl ' before.txt || { echo "Yakalama çalışmadı"; cat before.txt; exit 1; }
+
+          echo "--- aç"; $H --on
+          $H --status
+          sudo iptables -t mangle -S POSTROUTING
+          sudo ip6tables -t mangle -S POSTROUTING
+          test "$(sysctl -n net.ipv4.ip_default_ttl)" = "65"
+          capture on
+          ONTTL=$(grep -o 'ttl [0-9]*' on.txt | sort -u)
+          if [ "$ONTTL" != "ttl 65" ]; then
+            echo "Açıkken giden TTL hepsi 65 değil: $ONTTL"; cat on.txt; exit 1
+          fi
+
+          echo "--- kapat"; $H --off
+          $H --status
+          test "$(sysctl -n net.ipv4.ip_default_ttl)" = "$BEFORE"
+          capture after
+          if grep -q 'ttl 65' after.txt; then
+            echo "Kapattıktan sonra hâlâ TTL 65 var"; exit 1
+          fi
+          if sudo iptables -t mangle -S POSTROUTING | grep -q hotspot-ttl; then
+            echo "iptables kuralı kalmış"; exit 1
+          fi
+          echo "OK"
+
+      - name: Paketi artifact olarak yükle
+        uses: actions/upload-artifact@v4
+        with:
+          name: hotspot-ttl-deb
+          path: linux/dist/hotspot-ttl_1.2_all.deb

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Hotspot TTL
+GenericName=Hotspot TTL ayarı
+Comment=Telefon hotspot'unda giden paketlerin TTL değerini 65 yapar
+Exec=/usr/bin/hotspot-ttl
+Icon=network-wireless-hotspot
+Terminal=false
+Categories=Network;Utility;
+Keywords=hotspot;ttl;tethering;

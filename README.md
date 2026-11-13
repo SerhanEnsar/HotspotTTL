@@ -1,12 +1,13 @@
 <h1 align="center">📡 Hotspot TTL</h1>
 
 <p align="center">
-  Telefon hotspot'una bağlıyken bilgisayar trafiğini telefonun kendi trafiği gibi gösteren tek tıklık uygulama. macOS, Windows ve Android sürümleri var.
+  Telefon hotspot'una bağlıyken bilgisayar trafiğini telefonun kendi trafiği gibi gösteren tek tıklık uygulama. macOS, Windows, Linux (Ubuntu) ve Android sürümleri var.
 </p>
 
 <p align="center">
   <img alt="macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-black?logo=apple">
   <img alt="Windows 10+" src="https://img.shields.io/badge/Windows-10%2B-0078D4?logo=windows">
+  <img alt="Ubuntu 24.04" src="https://img.shields.io/badge/Ubuntu-24.04-E95420?logo=ubuntu&logoColor=white">
   <img alt="Android 8+" src="https://img.shields.io/badge/Android-8%2B-3DDC84?logo=android&logoColor=white">
   <img alt="Swift" src="https://img.shields.io/badge/Swift-SwiftUI-F05138?logo=swift&logoColor=white">
   <img alt="Bağımlılık yok" src="https://img.shields.io/badge/ba%C4%9F%C4%B1ml%C4%B1l%C4%B1k-yok-brightgreen">
@@ -34,6 +35,7 @@
 - [Kullanım](#kullanım)
 - [Tanı aracı](#tanı-aracı)
 - [Windows sürümü](#windows-sürümü)
+- [Linux (Ubuntu) sürümü](#linux-ubuntu-sürümü)
 - [Android sürümü](#android-sürümü)
 - [Nasıl bulundu?](#nasıl-bulundu)
 - [Proje yapısı](#proje-yapısı)
@@ -185,6 +187,43 @@ GitHub Actions her değişiklikte uygulamayı Windows'ta derleyip uçtan uca tes
 dotnet build windows/HotspotTTL.csproj -c Release
 # çıktı: windows/bin/Release/net48/HotspotTTL.exe
 ```
+
+## Linux (Ubuntu) sürümü
+
+Pencereli arayüz ve komut satırı. **Ubuntu / Debian**, Python 3 ile (ek paket gerekmez, `python3-tk` ve `iptables` paketle birlikte kurulur).
+
+Linux'ta çekirdeğin TTL ayarı tek başına yetiyor, ama IPv6 Router Advertisement hop limit'i 64'e çekebiliyor. Bu yüzden iki katman birden kullanılıyor:
+
+| # | Komut | Neden |
+|:-:|-------|-------|
+| ① | `sysctl net.ipv4.ip_default_ttl=65`, `net.ipv6.conf.{all,default}.hop_limit=65` | Yerel soketlerin varsayılan değeri |
+| ② | `iptables -t mangle -A POSTROUTING ! -o lo -j TTL --ttl-set 65` ve `ip6tables ... -j HL --hl-set 65` | Loopback dışındaki her giden paketin TTL / hop limit'ini zorlar. Uygulama kendi TTL'ini ayarlasa da, RA'dan gelen değer olsa da son söz bu kuralda |
+
+- **IPv6 kapatılmıyor**, hop limit 65 ile çalışıyor.
+- Yönetici yetkisi için **pkexec** kullanılır; her Aç/Kapat'ta Ubuntu'nun şifre penceresi çıkar.
+- Ayarlar **kalıcı değil**, yeniden başlatınca sıfırlanıyor. **Kapat** eski sysctl değerlerini `/var/lib/hotspot-ttl/state.json` dosyasından geri yükler ve kuralları siler.
+
+**Kurulum** (`.deb` [Releases](https://github.com/SerhanEnsar/HotspotTTL/releases) sayfasında):
+
+```bash
+sudo apt install ./hotspot-ttl_1.2_all.deb
+hotspot-ttl            # pencereyi açar; uygulama menüsünde de "Hotspot TTL" olarak çıkar
+```
+
+Komut satırından:
+
+```bash
+hotspot-ttl --status          # durum (root gerekmez)
+sudo hotspot-ttl --on         # aç
+sudo hotspot-ttl --off        # kapat
+hotspot-ttl --dry-run --on    # hiçbir şey değiştirmeden çalıştırılacak komutları yaz
+```
+
+**Derleme:** `.deb` paketini Ubuntu'da `linux/build-deb.sh 1.2` ile üretebilirsin. Birim testleri: `python3 -m unittest discover -s linux -p 'test_*.py'`.
+
+GitHub Actions her değişiklikte paketi kurup gerçek bir Ubuntu makinesinde test ediyor: `tcpdump` ile 443 portuna giden SYN paketlerinin açıkken TTL'inin 65, kapattıktan sonra eski değerinde olduğunu doğruluyor ([`.github/workflows/linux.yml`](.github/workflows/linux.yml)).
+
+**Sınırlar:** Pencere `pkexec` ile yetki ister, bu yüzden Wayland/X11 oturumu gerektirir. Hotspot'u bir Ubuntu makinesi kendisi yönlendiriyorsa (paylaşım yapan bilgisayar) bu uygulama işe yaramaz; bu uygulama hotspot'a bağlanan makine içindir.
 
 ## Android sürümü
 
