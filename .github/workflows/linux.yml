@@ -22,6 +22,7 @@ jobs:
 
       - name: Paketi kur (ilk kurulumda bağımlılıklar)
         run: |
+          sudo apt-get update -q
           sudo apt-get install -q -y ./linux/dist/hotspot-ttl_1.2_all.deb
           test -x /usr/bin/hotspot-ttl
           test -f /usr/share/polkit-1/actions/com.serhanensar.hotspotttl.policy

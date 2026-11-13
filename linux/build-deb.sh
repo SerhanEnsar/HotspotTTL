@@ -26,7 +26,7 @@ Section: net
 Priority: optional
 Architecture: all
 Installed-Size: $SIZE_KB
-Depends: python3, python3-tk, iptables, policykit-1, procps
+Depends: python3, python3-tk, iptables, pkexec, procps
 Maintainer: SerhanEnsar
 Homepage: https://github.com/SerhanEnsar/HotspotTTL
 Description: Telefon hotspot'unda giden paketlerin TTL değerini 65 yapar
